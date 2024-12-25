@@ -12,7 +12,7 @@ Descriptions of most functions can be found by viewing the lua files in a text e
 
 ## Installation
 
-1. Download [REFramework](https://github.com/praydog/REFramework) SF6.zip and place its dinput8.dll in your game folder
+1. Download [REFramework](https://github.com/praydog/REFramework) and place its dinput8.dll in your game folder
 2. Place the contents the reframework folder from this repository in your game directory
 3. Use `require` in your script to access ScriptCore's functions and use them in your scripts
 
