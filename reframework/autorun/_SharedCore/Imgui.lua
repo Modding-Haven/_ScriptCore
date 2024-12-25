@@ -2,31 +2,15 @@
 local modName =  "ScriptCore: Imgui LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
-local modUpdated = "12/20/2024"
-local modVersion = "v1.0.42"
+local modUpdated = "12/23/2024"
+local modVersion = "v1.0.50"
 local modCredits = "praydog"
 
 --------------------------------------/--
 local func = require("_SharedCore/Functions")
 local changed = false
-local isDebug = false
 
-local imguiStyle = {
-    progressBarBackground = 7,
-    progressBarForeground = 40,
-}
-
-local imguiStyle = {
-    text = 0,
-    rectangleFrame = 5,
-    progressBarBackground = 7,
-    button = 21,
-    buttonHovered = 22,
-    buttonActive = 23,
-    progressBarForeground = 40,
-}
-
---These colors are meant to be used with 'func.convert_rgba_to_AGBR'
+--These colors are meant to be used with 'func.convert_rgba_to_ABGR'
 local colors = {
     white = {255,255,255,255},
     white50 = {255,255,255,128},
@@ -43,17 +27,67 @@ local colors = {
     REFgray = {51, 52, 54, 255},
 }
 
+local ImGuiCol = {
+	Text = 0,
+	TextDisabled = 1,
+	WindowBg = 2,
+	ChildWindowBg = 3, -- Deprecated, use ChildBg
+	PopupBg = 4,
+	Border = 5,
+	BorderShadow = 6,
+	FrameBg = 7,
+	FrameBgHovered = 8,
+	FrameBgActive = 9,
+	TitleBg = 10,
+	TitleBgCollapsed = 11,
+	TitleBgActive = 12,
+	MenuBarBg = 13,
+	ScrollbarBg = 14,
+	ScrollbarGrab = 15,
+	ScrollbarGrabHovered = 16,
+	ScrollbarGrabActive = 17,
+	CheckMark = 18,
+	SliderGrab = 19,
+	SliderGrabActive = 20,
+	Button = 21,
+	ButtonHovered = 22,
+	ButtonActive = 23,
+	Header = 24,
+	HeaderHovered = 25,
+	HeaderActive = 26,
+	Separator = 27,
+	SeparatorHovered = 28,
+	SeparatorActive = 29,
+	ResizeGrip = 30,
+	ResizeGripHovered = 31,
+	ResizeGripActive = 32,
+	Tab = 33,
+	TabHovered = 34,
+	TabActive = 35,
+	TabUnfocused = 36,
+	TabUnfocusedActive = 37,
+	PlotLines = 38,
+	PlotLinesHovered = 39,
+	PlotHistogram = 40,
+	PlotHistogramHovered = 41,
+	TableHeaderBg = 42,
+	TableBorderStrong = 43,
+	TableBorderLight = 44,
+	TableRowBg = 45,
+	TableRowBgAlt = 46,
+	TextSelectedBg = 47,
+	DragDropTarget = 48,
+	NavHighlight = 49,
+	NavWindowingHighlight = 50,
+	NavWindowingDimBg = 51,
+	ModalWindowDimBg = 52,
+	COUNT = 53 -- ImGuiCol_COUNT
+}
+
 local function tooltip(text, do_force)
     if do_force or imgui.is_item_hovered() then
         imgui.set_tooltip(text)
     end
-end
-
-local function button_n_colored_txt(label, text, color)
-    imgui.button(label)
-    imgui.same_line()
-    imgui.text_colored(text, color)
-    func.tooltip("Green = Stable | Orange = Mostly Stable | Red = Unstable")
 end
 
 local function draw_line(char, n)
@@ -61,7 +95,7 @@ local function draw_line(char, n)
 end
 
 local function progressBar_DynamicColor(label, isSymbol, symbolOffset, baseColor, customColor01, customColor02, backgroundColor, baseValue, customValue, maxValue, barW, barH)
-    imgui.push_style_color(imguiStyle.progressBarBackground, backgroundColor)
+    imgui.push_style_color(ImGuiCol.FrameBg, backgroundColor)
     local percentDiff = math.abs(baseValue - customValue) / maxValue * 100
     local symbolCount = math.floor(percentDiff / 5)
 
@@ -74,15 +108,15 @@ local function progressBar_DynamicColor(label, isSymbol, symbolOffset, baseColor
             imgui.same_line()
             imgui.text_colored(draw_line(">", symbolCount), customColor01)
         end
-        imgui.push_style_color(imguiStyle.progressBarForeground, customColor01)
+        imgui.push_style_color(ImGuiCol.PlotHistogram, customColor01)
     elseif baseValue > customValue then
         if isSymbol then
             imgui.same_line()
             imgui.text_colored(draw_line("<", symbolCount), customColor02)
         end
-        imgui.push_style_color(imguiStyle.progressBarForeground, customColor02)
+        imgui.push_style_color(ImGuiCol.PlotHistogram, customColor02)
     else
-        imgui.push_style_color(imguiStyle.progressBarForeground, baseColor)
+        imgui.push_style_color(ImGuiCol.PlotHistogram, baseColor)
     end
 
     local value = math.min(customValue / maxValue, 1)
@@ -100,9 +134,9 @@ end
 
 local function button_CheckboxStyle(label, table, stateBoolName, buttonColor, textColor, borderColor)
     if table[stateBoolName] then
-        imgui.push_style_color(imguiStyle.text, textColor)
-        imgui.push_style_color(imguiStyle.button, buttonColor)
-        imgui.push_style_color(imguiStyle.rectangleFrame, borderColor)
+        imgui.push_style_color(ImGuiCol.Text, textColor)
+        imgui.push_style_color(ImGuiCol.Button, buttonColor)
+        imgui.push_style_color(ImGuiCol.Border, borderColor)
     end
     imgui.begin_rect()
     if imgui.button(label) then
@@ -388,63 +422,6 @@ local FilePicker = {
 	end,
 }
 
-local ImGuiCol = {
-	Text = 0,
-	TextDisabled = 1,
-	WindowBg = 2,
-	ChildWindowBg = 3, -- Deprecated, use ChildBg
-	PopupBg = 4,
-	Border = 5,
-	BorderShadow = 6,
-	FrameBg = 7,
-	FrameBgHovered = 8,
-	FrameBgActive = 9,
-	TitleBg = 10,
-	TitleBgCollapsed = 11,
-	TitleBgActive = 12,
-	MenuBarBg = 13,
-	ScrollbarBg = 14,
-	ScrollbarGrab = 15,
-	ScrollbarGrabHovered = 16,
-	ScrollbarGrabActive = 17,
-	CheckMark = 18,
-	SliderGrab = 19,
-	SliderGrabActive = 20,
-	Button = 21,
-	ButtonHovered = 22,
-	ButtonActive = 23,
-	Header = 24,
-	HeaderHovered = 25,
-	HeaderActive = 26,
-	Separator = 27,
-	SeparatorHovered = 28,
-	SeparatorActive = 29,
-	ResizeGrip = 30,
-	ResizeGripHovered = 31,
-	ResizeGripActive = 32,
-	Tab = 33,
-	TabHovered = 34,
-	TabActive = 35,
-	TabUnfocused = 36,
-	TabUnfocusedActive = 37,
-	PlotLines = 38,
-	PlotLinesHovered = 39,
-	PlotHistogram = 40,
-	PlotHistogramHovered = 41,
-	TableHeaderBg = 42,
-	TableBorderStrong = 43,
-	TableBorderLight = 44,
-	TableRowBg = 45,
-	TableRowBgAlt = 46,
-	TextSelectedBg = 47,
-	DragDropTarget = 48,
-	NavHighlight = 49,
-	NavWindowingHighlight = 50,
-	NavWindowingDimBg = 51,
-	ModalWindowDimBg = 52,
-	COUNT = 53 -- ImGuiCol_COUNT
-}
-
 local function to_argb(r, g, b, a)
 	local ir = math.floor(r * 255)
 	local ig = math.floor(g * 255)
@@ -454,29 +431,29 @@ local function to_argb(r, g, b, a)
 end
 
 --Source: https:--github.com/ocornut/imgui/issues/707
-local themes 
+local themes
 themes = {
 	theme_names = {
-		"None", 
-		"Blue", 
+		"None",
+		"Blue",
 		"BlueHydrangea",
 		"BessDarkTheme",
-		"CatpuccinMocha", 
+		"CatpuccinMocha",
 		"Cherry",
 		"Darcula",
 		"DraculaStyle",
 		"DarkTheme",
 		"FluentUI",
 		"FluentUILight",
-		"Glass", 
+		"Glass",
 		"LightBlack",
 		"LightRounded",
-		"Maroon", 
+		"Maroon",
 		"MaterialFlat",
 		"MaterialYou",
 		"Modern",
 		"Photoshop",
-		"Purple", 
+		"Purple",
 		"ShadesOfGray",
 		"SoDark",
 	},
@@ -641,58 +618,58 @@ themes = {
 		{ImGuiCol.ModalWindowDimBg,          to_argb(0.20, 0.20, 0.20, 0.35)},
 	},
 	CatpuccinMocha = {
-        {ImGuiCol.Text,  					to_argb(0.90, 0.89, 0.88, 1.00)},         -- Latte
-        {ImGuiCol.TextDisabled,  			to_argb(0.60, 0.56, 0.52, 1.00)}, -- Surface2
-        {ImGuiCol.WindowBg,  				to_argb(0.17, 0.14, 0.20, 1.00)},     -- Base
-        {ImGuiCol.ChildBg,  				to_argb(0.18, 0.16, 0.22, 1.00)},      -- Mantle
-        {ImGuiCol.PopupBg,  				to_argb(0.17, 0.14, 0.20, 1.00)},      -- Base
-        {ImGuiCol.Border,  					to_argb(0.27, 0.23, 0.29, 1.00)},       -- Overlay0
+        {ImGuiCol.Text,  					to_argb(0.90, 0.89, 0.88, 1.00)},         	-- Latte
+        {ImGuiCol.TextDisabled,  			to_argb(0.60, 0.56, 0.52, 1.00)}, 			-- Surface2
+        {ImGuiCol.WindowBg,  				to_argb(0.17, 0.14, 0.20, 1.00)},     		-- Base
+        {ImGuiCol.ChildBg,  				to_argb(0.18, 0.16, 0.22, 1.00)},      		-- Mantle
+        {ImGuiCol.PopupBg,  				to_argb(0.17, 0.14, 0.20, 1.00)},      		-- Base
+        {ImGuiCol.Border,  					to_argb(0.27, 0.23, 0.29, 1.00)},       	-- Overlay0
         {ImGuiCol.BorderShadow,  			to_argb(0.00, 0.00, 0.00, 0.00)},
-        {ImGuiCol.FrameBg,  				to_argb(0.21, 0.18, 0.25, 1.00)},              -- Crust
-        {ImGuiCol.FrameBgHovered,  			to_argb(0.24, 0.20, 0.29, 1.00)},       -- Overlay1
-        {ImGuiCol.FrameBgActive,  			to_argb(0.26, 0.22, 0.31, 1.00)},        -- Overlay2
-        {ImGuiCol.TitleBg,  				to_argb(0.14, 0.12, 0.18, 1.00)},              -- Mantle
-        {ImGuiCol.TitleBgActive,  			to_argb(0.17, 0.15, 0.21, 1.00)},        -- Mantle
-        {ImGuiCol.TitleBgCollapsed,  		to_argb(0.14, 0.12, 0.18, 1.00)},     -- Mantle
-        {ImGuiCol.MenuBarBg,  				to_argb(0.17, 0.15, 0.22, 1.00)},            -- Base
-        {ImGuiCol.ScrollbarBg,  			to_argb(0.17, 0.14, 0.20, 1.00)},          -- Base
-        {ImGuiCol.ScrollbarGrab,  			to_argb(0.21, 0.18, 0.25, 1.00)},        -- Crust
-        {ImGuiCol.ScrollbarGrabHovered,  	to_argb(0.24, 0.20, 0.29, 1.00)}, -- Overlay1
-        {ImGuiCol.ScrollbarGrabActive,  	to_argb(0.26, 0.22, 0.31, 1.00)},  -- Overlay2
-        {ImGuiCol.CheckMark,  				to_argb(0.95, 0.66, 0.47, 1.00)},            -- Peach
+        {ImGuiCol.FrameBg,  				to_argb(0.21, 0.18, 0.25, 1.00)},           -- Crust
+        {ImGuiCol.FrameBgHovered,  			to_argb(0.24, 0.20, 0.29, 1.00)},       	-- Overlay1
+        {ImGuiCol.FrameBgActive,  			to_argb(0.26, 0.22, 0.31, 1.00)},        	-- Overlay2
+        {ImGuiCol.TitleBg,  				to_argb(0.14, 0.12, 0.18, 1.00)},           -- Mantle
+        {ImGuiCol.TitleBgActive,  			to_argb(0.17, 0.15, 0.21, 1.00)},        	-- Mantle
+        {ImGuiCol.TitleBgCollapsed,  		to_argb(0.14, 0.12, 0.18, 1.00)},     		-- Mantle
+        {ImGuiCol.MenuBarBg,  				to_argb(0.17, 0.15, 0.22, 1.00)},           -- Base
+        {ImGuiCol.ScrollbarBg,  			to_argb(0.17, 0.14, 0.20, 1.00)},          	-- Base
+        {ImGuiCol.ScrollbarGrab,  			to_argb(0.21, 0.18, 0.25, 1.00)},        	-- Crust
+        {ImGuiCol.ScrollbarGrabHovered,  	to_argb(0.24, 0.20, 0.29, 1.00)}, 			-- Overlay1
+        {ImGuiCol.ScrollbarGrabActive,  	to_argb(0.26, 0.22, 0.31, 1.00)},  			-- Overlay2
+        {ImGuiCol.CheckMark,  				to_argb(0.95, 0.66, 0.47, 1.00)},           -- Peach
         {ImGuiCol.SliderGrab,  				to_argb(0.82, 0.61, 0.85, 1.00)},           -- Lavender
-        {ImGuiCol.SliderGrabActive,  		to_argb(0.89, 0.54, 0.79, 1.00)},     -- Pink
-        {ImGuiCol.Button,  					to_argb(0.65, 0.34, 0.46, 1.00)},               -- Maroon
-        {ImGuiCol.ButtonHovered,  			to_argb(0.71, 0.40, 0.52, 1.00)},        -- Red
-        {ImGuiCol.ButtonActive,  			to_argb(0.76, 0.46, 0.58, 1.00)},         -- Pink
-        {ImGuiCol.Header,  					to_argb(0.65, 0.34, 0.46, 1.00)},               -- Maroon
-        {ImGuiCol.HeaderHovered,  			to_argb(0.71, 0.40, 0.52, 1.00)},        -- Red
-        {ImGuiCol.HeaderActive,  			to_argb(0.76, 0.46, 0.58, 1.00)},         -- Pink
-        {ImGuiCol.Separator,  				to_argb(0.27, 0.23, 0.29, 1.00)},            -- Overlay0
-        {ImGuiCol.SeparatorHovered,  		to_argb(0.95, 0.66, 0.47, 1.00)},     -- Peach
-        {ImGuiCol.SeparatorActive,  		to_argb(0.95, 0.66, 0.47, 1.00)},      -- Peach
+        {ImGuiCol.SliderGrabActive,  		to_argb(0.89, 0.54, 0.79, 1.00)},     		-- Pink
+        {ImGuiCol.Button,  					to_argb(0.65, 0.34, 0.46, 1.00)},           -- Maroon
+        {ImGuiCol.ButtonHovered,  			to_argb(0.71, 0.40, 0.52, 1.00)},        	-- Red
+        {ImGuiCol.ButtonActive,  			to_argb(0.76, 0.46, 0.58, 1.00)},         	-- Pink
+        {ImGuiCol.Header,  					to_argb(0.65, 0.34, 0.46, 1.00)},           -- Maroon
+        {ImGuiCol.HeaderHovered,  			to_argb(0.71, 0.40, 0.52, 1.00)},        	-- Red
+        {ImGuiCol.HeaderActive,  			to_argb(0.76, 0.46, 0.58, 1.00)},         	-- Pink
+        {ImGuiCol.Separator,  				to_argb(0.27, 0.23, 0.29, 1.00)},           -- Overlay0
+        {ImGuiCol.SeparatorHovered,  		to_argb(0.95, 0.66, 0.47, 1.00)},     		-- Peach
+        {ImGuiCol.SeparatorActive,  		to_argb(0.95, 0.66, 0.47, 1.00)},      		-- Peach
         {ImGuiCol.ResizeGrip,  				to_argb(0.82, 0.61, 0.85, 1.00)},           -- Lavender
-        {ImGuiCol.ResizeGripHovered,  		to_argb(0.89, 0.54, 0.79, 1.00)},    -- Pink
-        {ImGuiCol.ResizeGripActive,  		to_argb(0.92, 0.61, 0.85, 1.00)},     -- Mauve
-        {ImGuiCol.Tab,  					to_argb(0.21, 0.18, 0.25, 1.00)},                  -- Crust
+        {ImGuiCol.ResizeGripHovered,  		to_argb(0.89, 0.54, 0.79, 1.00)},    		-- Pink
+        {ImGuiCol.ResizeGripActive,  		to_argb(0.92, 0.61, 0.85, 1.00)},     		-- Mauve
+        {ImGuiCol.Tab,  					to_argb(0.21, 0.18, 0.25, 1.00)},           -- Crust
         {ImGuiCol.TabHovered,  				to_argb(0.82, 0.61, 0.85, 1.00)},           -- Lavender
-        {ImGuiCol.TabActive,  				to_argb(0.76, 0.46, 0.58, 1.00)},            -- Pink
-        {ImGuiCol.TabUnfocused,  			to_argb(0.18, 0.16, 0.22, 1.00)},         -- Mantle
-        {ImGuiCol.TabUnfocusedActive,  		to_argb(0.21, 0.18, 0.25, 1.00)},   -- Crust
-        {ImGuiCol.DockingPreview,  			to_argb(0.95, 0.66, 0.47, 0.70)},       -- Peach
-        {ImGuiCol.DockingEmptyBg,  			to_argb(0.12, 0.12, 0.12, 1.00)},       -- Base
-        {ImGuiCol.PlotLines,  				to_argb(0.82, 0.61, 0.85, 1.00)},            -- Lavender
-        {ImGuiCol.PlotLinesHovered,  		to_argb(0.89, 0.54, 0.79, 1.00)},     -- Pink
-        {ImGuiCol.PlotHistogram,  			to_argb(0.82, 0.61, 0.85, 1.00)},        -- Lavender
-        {ImGuiCol.PlotHistogramHovered,  	to_argb(0.89, 0.54, 0.79, 1.00)}, -- Pink
-        {ImGuiCol.TableHeaderBg,  			to_argb(0.19, 0.19, 0.20, 1.00)},        -- Mantle
-        {ImGuiCol.TableBorderStrong,  		to_argb(0.27, 0.23, 0.29, 1.00)},    -- Overlay0
-        {ImGuiCol.TableBorderLight,  		to_argb(0.23, 0.23, 0.25, 1.00)},     -- Surface2
+        {ImGuiCol.TabActive,  				to_argb(0.76, 0.46, 0.58, 1.00)},           -- Pink
+        {ImGuiCol.TabUnfocused,  			to_argb(0.18, 0.16, 0.22, 1.00)},         	-- Mantle
+        {ImGuiCol.TabUnfocusedActive,  		to_argb(0.21, 0.18, 0.25, 1.00)},   		-- Crust
+        {ImGuiCol.DockingPreview,  			to_argb(0.95, 0.66, 0.47, 0.70)},       	-- Peach
+        {ImGuiCol.DockingEmptyBg,  			to_argb(0.12, 0.12, 0.12, 1.00)},       	-- Base
+        {ImGuiCol.PlotLines,  				to_argb(0.82, 0.61, 0.85, 1.00)},           -- Lavender
+        {ImGuiCol.PlotLinesHovered,  		to_argb(0.89, 0.54, 0.79, 1.00)},     		-- Pink
+        {ImGuiCol.PlotHistogram,  			to_argb(0.82, 0.61, 0.85, 1.00)},        	-- Lavender
+        {ImGuiCol.PlotHistogramHovered,  	to_argb(0.89, 0.54, 0.79, 1.00)}, 			-- Pink
+        {ImGuiCol.TableHeaderBg,  			to_argb(0.19, 0.19, 0.20, 1.00)},        	-- Mantle
+        {ImGuiCol.TableBorderStrong,  		to_argb(0.27, 0.23, 0.29, 1.00)},    		-- Overlay0
+        {ImGuiCol.TableBorderLight,  		to_argb(0.23, 0.23, 0.25, 1.00)},     		-- Surface2
         {ImGuiCol.TableRowBg,  				to_argb(0.00, 0.00, 0.00, 0.00)},
-        {ImGuiCol.TableRowBgAlt,  			to_argb(1.00, 1.00, 1.00, 0.06)},  -- Surface0
-        {ImGuiCol.TextSelectedBg,  			to_argb(0.82, 0.61, 0.85, 0.35)}, -- Lavender
-        {ImGuiCol.DragDropTarget,  			to_argb(0.95, 0.66, 0.47, 0.90)}, -- Peach
-        {ImGuiCol.NavHighlight,  			to_argb(0.82, 0.61, 0.85, 1.00)},   -- Lavender
+        {ImGuiCol.TableRowBgAlt,  			to_argb(1.00, 1.00, 1.00, 0.06)},  			-- Surface0
+        {ImGuiCol.TextSelectedBg,  			to_argb(0.82, 0.61, 0.85, 0.35)}, 			-- Lavender
+        {ImGuiCol.DragDropTarget,  			to_argb(0.95, 0.66, 0.47, 0.90)}, 			-- Peach
+        {ImGuiCol.NavHighlight,  			to_argb(0.82, 0.61, 0.85, 1.00)},   		-- Lavender
         {ImGuiCol.NavWindowingHighlight,  	to_argb(1.00, 1.00, 1.00, 0.70)},
         {ImGuiCol.NavWindowingDimBg,  		to_argb(0.80, 0.80, 0.80, 0.20)},
         {ImGuiCol.ModalWindowDimBg,  		to_argb(0.80, 0.80, 0.80, 0.35)},
@@ -1538,26 +1515,8 @@ for i, theme_name in pairs(themes.theme_names) do
 	end
 end
 
---[[
-local testValue = 50
-local testValues = {50, 75, 100}
-local buttonState = {isPressed = false}
-re.on_draw_ui(function ()
-    if isDebug then
-        if imgui.tree_node(modName) then
-            changed, testValue = imgui.drag_int("Test", testValue, 1, 0, 100)
-            progressBar_DynamicColor("[ progressBar_DynamicColor ]", true, 10, func.convert_rgba_to_AGBR(255,255,255,255), func.convert_rgba_to_AGBR(0,255,0,255), func.convert_rgba_to_AGBR(255,0,0,255), func.convert_rgba_to_AGBR(55,55,55,255), 50, testValue, 100, 300, 5)
-            button_CheckboxStyle("[ Click Me ]", buttonState, "isPressed", func.convert_rgba_to_AGBR(colors.REFgray), func.convert_rgba_to_AGBR(colors.gold), func.convert_rgba_to_AGBR(colors.gold))
-            imgui.tree_pop()
-        end
-    end
-end)
-]]
-
 ui = {
-    imguiStyle = imguiStyle,                                                    -- Table containing imgui indexes for use with 'imgui.push_style_color'.
-    colors = colors,                                                            -- Table containing RGBA colors for use with 'func.convert_rgba_to_AGBR'.
-    button_n_colored_txt = button_n_colored_txt,                                -- TBR
+    colors = colors,                                                            -- Table containing RGBA colors for use with 'func.convert_rgba_to_ABGR'.
     draw_line = draw_line,                                                      -- Fn repeats the string provided in the first argument n times.
 	table_vec = table_vec,														-- A wrapper for imgui.drag_int/float2,3,4 and color_edit3/4 etc that allows them to accept tables instead of VectorXfs
 	tree_node_colored = tree_node_colored,										-- Makes an imgui.tree_node_str_id with colored text afterwards

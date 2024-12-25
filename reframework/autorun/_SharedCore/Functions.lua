@@ -1,9 +1,9 @@
 --/////////////////////////////////////--
-local modName =  "_ScriptCore: Functions LUA"
+local modName =  "ScriptCore: Functions LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
-local modUpdated = "12/20/2024"
-local modVersion = "v1.1.8"
+local modUpdated = "12/23/2024"
+local modVersion = "v1.1.81"
 local modCredits = "praydog"
 
 --/////////////////////////////////////--
@@ -168,11 +168,10 @@ local function convert_vector4f_to_rgba(vector)
     return R, G, B, A
 end
 
---Convert RGBA to AGBR, args can take either a table with 4 values or 4 different ints
--- i.e.: 
+--Convert RGBA to ABGR, args can take either a table with 4 values or 4 different ints
 -- myCoolColorTable = {255, 187, 0, 255} 
 -- myCoolColorRed = 255, myCoolColorGreen = 72, myCoolColorBlue = 137, myCoolColorAlpha = 255,
-local function convert_rgba_to_AGBR(r, g, b, a)
+local function convert_rgba_to_ABGR(r, g, b, a)
     if type(r) == "table" then
         r, g, b, a = r[1], r[2], r[3], r[4]
     end
@@ -182,8 +181,8 @@ local function convert_rgba_to_AGBR(r, g, b, a)
     b = math.min(255, math.max(0, b))
     a = math.min(255, math.max(0, a))
 
-    local agbr = (a << 24) | (b << 16) | (g << 8) | r
-    return agbr
+    local abgr = (a << 24) | (b << 16) | (g << 8) | r
+    return abgr
 end
 
 local function table_contains(table, element)
@@ -1214,7 +1213,7 @@ func = {
     convert_rgba_to_vector4f = convert_rgba_to_vector4f,
     convert_vector4f_to_rgba = convert_vector4f_to_rgba,
     convert_float4_to_vector4f = convert_float4_to_vector4f,
-	convert_rgba_to_AGBR = convert_rgba_to_AGBR,
+	convert_rgba_to_ABGR = convert_rgba_to_ABGR,
     tooltip = tooltip,
     colored_TextSwitch = colored_TextSwitch,
     create_resource = create_resource,
