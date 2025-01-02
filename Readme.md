@@ -13,8 +13,9 @@ Descriptions of most functions can be found by viewing the lua files in a text e
 ## Installation
 
 1. Download [REFramework](https://github.com/praydog/REFramework) and place its dinput8.dll in your game folder
-2. Place the contents the reframework folder from this repository in your game directory
-3. Use `require` in your script to access ScriptCore's functions and use them in your scripts
+2. Download ScriptCore via `Code > Download ZIP` or from Nexus Mods
+3. Place the contents the reframework folder from this repository in your game directory
+4. Use `require` in your script to access ScriptCore's functions and use them in your scripts
 
 ## Examples
 [Skill Maker](https://www.nexusmods.com/dragonsdogma2/mods/691) - A large script that extensively uses _ScriptCore. Search for `func` (Functions), `hk` (Hotkeys) and `ui` (Imgui) tables to see how it's used
