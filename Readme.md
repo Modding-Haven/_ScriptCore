@@ -1,5 +1,7 @@
 # _ScriptCore
 
+![ScriptCore Cover](https://i.imgur.com/cdQ0stZ.jpeg)
+
 ScriptCore is a collection of 3 utilities for REFramework scripting:
 - Hotkeys.lua - A hotkey manager that allows for simple binding of hotkeys for gamepad, keyboard and mouse, with methods for checking if the keys are pressed, released, down, held for a time or double tapped
 - Functions.lua - A collection of useful functions for such things as getting components, merging System.Arrays, casting rays, cloning objects, copying fields and more
@@ -16,6 +18,7 @@ Descriptions of most functions can be found by viewing the lua files in a text e
 
 ## Examples
 [Skill Maker](https://www.nexusmods.com/dragonsdogma2/mods/691) - A large script that extensively uses _ScriptCore. Search for `func` (Functions), `hk` (Hotkeys) and `ui` (Imgui) tables to see how it's used
+
 [Teleportation](https://www.nexusmods.com/dragonsdogma2/mods/444) - One of many smaller scripts that utilize Hotkeys.lua
 
 ## Credits
