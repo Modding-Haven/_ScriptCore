@@ -120,8 +120,9 @@ local function table_vec(fn, label, value, args)
     return changed, value
 end
 
-local function tree_node_colored(key, white_text, color_text, color)
+local function tree_node_colored(key, white_text, color_text, color, tooltip_text)
 	local output = imgui.tree_node_str_id(key or 'a', white_text or "")
+	if tooltip_text then tooltip(tooltip_text) end
 	imgui.same_line()
 	imgui.text_colored(color_text or "", color or 0xFFE0853D)
 	return output
@@ -132,8 +133,13 @@ local isi_changed = {}
 
 --Makes it so an imgui function will not update its value until you let go of it, avoiding issues like where typing '1' while trying to type '13' temporarily sets the thing to 1
 --Takes an imgui function like 'imgui.drag_float', a key of some sort, then the regular imgui arguments for that function, with all the args after 'value' wrapped in a table 'args'
+--NOTE: every single use of this function must have a UNIQUE key or values will be shared
 local function imgui_safe_input(fn, key, label, value, args)
-	changed, isi_data[key] = fn(label, isi_data[key] or value, table.unpack(args))
+	if args then 
+		changed, isi_data[key] = fn(label, isi_data[key] or value, table.unpack(args))
+	else
+		changed, isi_data[key] = fn(label, isi_data[key] or value)
+	end
 	isi_changed[key] = isi_changed[key] or changed
 	
 	if not imgui.is_item_active() then
@@ -175,8 +181,10 @@ local FilePicker = {
 		self.__index = self
 		local o = not args.doReset and self.instance or {}
 		o.currentDir = args.currentDir or o.currentDir or ""
+		o.history = args.history or o.history or {data={idx=1}, natives={idx=1}}
 		o.prefixDir = args.prefixDir or o.prefixDir or "reframework\\data\\"
 		o.newDirText = o.prefixDir .. o.currentDir
+		o.selectedPathText = args.selectedPathText or o.selectedPathText or ""
 		o.doNatives = args.doNatives or o.doNatives or false
 		o.showFilePicker = true
 		o.isCancelled = false
@@ -199,26 +207,37 @@ local FilePicker = {
 	end,
 	
 	displayImgui = function(self, is_save_mode)
-		local uniqueEntries = {[".."] = 1}
-		local folders = {}
-		local files = {}
-		local calc_width = imgui.calc_item_width()
 		self.glob = (self.doRefresh or not self.glob) and fs.glob(".*", self.doNatives and "$natives") or self.glob
+		local hit_back, hit_fwd
+		local uniqueEntries = {[".."] = 1}
+		local files, folders = {}, {}
+		local calc_width = imgui.calc_item_width()
+		local history = self.history[self.doNatives and "natives" or "data"]
+		history[1] = history[1] or self.currentDir
 		
 		local function setPath(path)
-			if path == ".." then
+			if hit_back or hit_fwd then
+				history.idx = (hit_back and history.idx > 1 and history.idx - 1) or (hit_fwd and history.idx < #history and history.idx + 1) or history.idx
+				self.currentDir = history[history.idx]
+			elseif path == ".." then
 				self.currentDir = self.currentDir:match("(.+\\).+\\") or ""
-				self.selectedEntryIdx = -1
-				self.selectedPathText = ""
 			elseif uniqueEntries[path] == 1 then
 				self.currentDir = self.currentDir .. path
-				self.selectedEntryIdx = -1
-				self.doubleClickTimer = 0
-				self.selectedPathText = ""
 			else
 				self.pickedItem = path
 				self.selectedPathText = path
 				self.isConfirmed, self.isCancelled, self.showFilePicker = true, false, false
+			end
+			if not self.isConfirmed then
+				self.selectedEntryIdx = -1
+				self.selectedPathText = ""
+				self.doubleClickTimer = 0
+				self.newDirText = self.prefixDir .. self.currentDir
+				if not (hit_back or hit_fwd) then
+					while history[history.idx+1] do table.remove(history, history.idx+1) end
+					table.insert(history, self.currentDir)
+					history.idx = #history
+				end
 			end
 			self.filteredList = nil
 			self.filterText = ""
@@ -262,20 +281,45 @@ local FilePicker = {
 		end
 		
 		imgui.spacing()
+		
+		hit_back = imgui.arrow_button("Back", 0)
+		tooltip("Back")
+		hit_fwd = not imgui.same_line() and imgui.arrow_button("Fwd", 1)
+		tooltip("Forward")
+		if hit_back or hit_fwd then
+			setPath()
+		end
+		
+		imgui.same_line()
+		changed, self.doNatives = imgui.checkbox("Natives", self.doNatives)
+		tooltip("Browse files in the " .. (self.doNatives and "reframework\\data" or "natives").." folder")
+		
+		if changed then 
+			local old_prev = self.prevModeDir
+			self.prevModeDir = self.currentDir
+			self.prefixDir = self.doNatives and "natives\\" or "reframework\\data\\"
+			self.currentDir = old_prev or ""
+			self.newDirText = self.prefixDir .. self.currentDir
+			self.filteredList = nil
+			self.filterText = ""
+			self.glob = nil
+		end
+		
 		imgui.set_next_item_width(calc_width * 1.5)
 		changed, self.newDirText = imgui.input_text("  ", self.newDirText)
 		
 		if changed then
-			local cleanName = self.newDirText:gsub(self.prefixDir, ""):lower()
+			local cleanName = self.newDirText:gsub(self.prefixDir, "")
+			local cleanNameLower = cleanName:lower()
 			if self.newDirText:find(self.prefixDir) ~= 1 then
 				self.newDirText = self.prefixDir .. self.currentDir
 			elseif self.newDirText:sub(-1, -1) == "\\" then
 				for i, path in ipairs(self.glob) do
-					if path:lower():find(cleanName) then
+					if path:lower():find(cleanNameLower) then
 						self.currentDir = cleanName
 					end
 				end
-			elseif self.filters and self.filters[cleanName:match("^.+%.(.+)%.") or cleanName:match("^.+%.(.+)") or 0] then
+			elseif self.filters and self.filters[cleanNameLower:match("^.+%.(.+)%.") or cleanNameLower:match("^.+%.(.+)") or 0] then
 				self.currentDir = cleanName:match("(.+\\)") or self.currentDir
 			end
 			self.filteredList = nil
@@ -293,7 +337,6 @@ local FilePicker = {
 						self.selectedPathText = self.paths[self.selectedEntryIdx]
 						if os.clock() - self.doubleClickTimer < 0.33 then
 							setPath(path)
-							self.newDirText = self.prefixDir .. self.currentDir
 						end
 						self.doubleClickTimer = os.clock()
 					end
@@ -329,24 +372,9 @@ local FilePicker = {
 		self.doRefresh = imgui.button("Refresh") or changed
 		
 		imgui.same_line()
-		changed, self.doNatives = imgui.checkbox("Natives", self.doNatives)
-		tooltip("Browse files in the " .. (self.doNatives and "reframework\\data" or "natives").." folder")
-		
-		if changed then 
-			local old_prev = self.prevModeDir
-			self.prevModeDir = self.currentDir
-			self.prefixDir = self.doNatives and "natives\\" or "reframework\\data\\"
-			self.currentDir = old_prev or ""
-			self.newDirText = self.prefixDir .. self.currentDir
-			self.filteredList = nil
-			self.filterText = ""
-			self.glob = nil
-		end
-		
-		imgui.same_line()
-		imgui.set_next_item_width(imgui.get_window_size().x - imgui.calc_text_size("___________________________________________").x)
-		changed, self.filterText = imgui.input_text("   ", self.filterText)	
-		tooltip("Filter results")
+		imgui.set_next_item_width(imgui.get_window_size().x - imgui.calc_text_size("____________________________________").x)
+		changed, self.filterText = imgui.input_text("Filter", self.filterText)	
+		tooltip("Filter results by name")
 		
 		if changed then 
 			self.filteredList = nil
@@ -1521,7 +1549,7 @@ themes = {
 	},
 	push_theme = function(theme_name)
 		if theme_name == "None" then return end
-		for i, tbl in ipairs(themes[theme_name]) do
+		for i, tbl in ipairs(themes[theme_name] or {}) do
 			imgui.push_style_color(tbl[1], tbl[2])
 		end
 	end,

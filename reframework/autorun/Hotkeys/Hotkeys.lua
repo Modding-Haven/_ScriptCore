@@ -1,11 +1,12 @@
---'Hotkeys' REFramework lua script
---By alphaZomega
---Manage custom hotkeys across scripts
---v1.3.3 August 5, 2024
+--/////////////////////////////////////--
+local modName =  "_ScriptCore: Hotkeys"
 
---Removed yellow asterisk for key conflicts
---Added 'check_kb_key', 'check_mouse_button' and 'check_pad_button' functions for testing if an input is down by name directly
---Added 'check_doubletap' and 'check_hold' hotkey checkers, for seeing if an action is being double-tapped or held down
+local modAuthor = "alphaZomega"
+local modUpdated = "12/20/2024"
+local modVersion = "v1.3.4"
+local modCredits = "praydog"
+
+--/////////////////////////////////////--
 
 local kb, mouse, pad
 local m_up, m_down, m_trig
@@ -30,6 +31,30 @@ local function merge_tables(table_a, table_b, no_overwrite)
 		for key_b, value_b in pairs(table_b) do table_a[key_b] = value_b end
 	end
 	return table_a
+end
+
+--Merge hashed dictionaries. table_b will be merged into table_a
+local function merge_tables_recursively(table_a, table_b, no_overwrite)
+	local searched = {}
+	
+	local function recurse(tbl_a, tbl_b)
+		if searched[tbl_b] then return searched[tbl_b] end
+		searched[tbl_b] = tbl_a
+		
+		if no_overwrite then 
+			for key_b, value_b in pairs(tbl_b) do 
+				if tbl_a[key_b] == nil then
+					tbl_a[key_b] = type(value_b)=="table" and recurse({}, value_b) or value_b
+				end
+			end
+		else
+			for key_b, value_b in pairs(tbl_b) do 
+				tbl_a[key_b] = type(value_b)=="table" and recurse((type(tbl_a[key_b])=="table" and tbl_a[key_b] or {}), value_b) or value_b 
+			end
+		end
+		return tbl_a
+	end
+	return recurse(table_a, table_b)
 end
 
 --Gets an enum
@@ -123,10 +148,10 @@ end
 
 local def_hk_data = {modifier_actions={}}
 
-local function recurse_def_settings(tbl, defaults_tbl)
+local function recurse_def_settings(main_tbl, defaults_tbl)
 	local searched = {}
-	local function recurse(tbl, defaults_tbl)
-		for key, value in pairs(defaults_tbl) do
+	local function recurse(tbl, d_tbl)
+		for key, value in pairs(d_tbl) do
 			if type(tbl[key]) ~= type(value) then 
 				if type(value) == "table" and not searched[value] then
 					searched[value] = true
@@ -141,7 +166,7 @@ local function recurse_def_settings(tbl, defaults_tbl)
 		end
 		return tbl
 	end
-	return recurse(tbl, defaults_tbl)
+	return recurse(main_tbl, defaults_tbl)
 end
 
 local hk_data = recurse_def_settings(json.load_file("Hotkeys_data.json") or {}, def_hk_data)
@@ -485,44 +510,45 @@ end)
 
 -- Script functionality:
 hk = hk or {
-	kb = kb, 											-- Keyboard device Managed Object, updated every frame
-	mouse = mouse, 										-- Mouse device Managed Object, updated every frame
-	pad = pad, 											-- Gamepad device Managed Object, updated every frame
-	
-	keys = keys, 										-- Enum of keyboard key names vs key IDs (some tweaked names)
-	buttons = buttons, 									-- Enum of gamepad button names vs button IDs (some tweaked names)
-	mbuttons = mbuttons, 								-- Enum of mouse button names vs button IDs (some tweaked names)
-	
-	hotkeys = hotkeys, 									-- Table of current action names vs button strings
-	default_hotkeys = default_hotkeys, 					-- Table of default action names vs button strings
-	
-	kb_state = kb_state,								-- Table with state (up/down/triggered) of all used keyboard keys, updated every frame
-	gp_state = gp_state, 								-- Table with state (up/down/triggered) of all used gamepad buttons, updated every frame
-	mb_state = mb_state, 								-- Table with state (up/down/triggered) of all used mouse buttons, updated every frame
-	
-	recurse_def_settings = recurse_def_settings, 		-- Fn takes a table 'tbl' and its paired 'defaults_tbl' and copies mismatched/missing fields from defaults_tbl to tbl, then does the same for any child tables of defaults_tbl
-	find_index = find_index, 							-- Fn takes a table and a value (and optionally a key), then finds the index containing a value (or of the value containing that value as a field 'key') in that table
-	merge_tables = merge_tables,						-- Fn takes table A and B then merges table A into table B
-	generate_statics = generate_statics, 				-- Fn takes a typedef name for a System.Enum and returns a lua table from it
-	
-	setup_hotkeys = setup_hotkeys, 						-- Fn takes a table of hotkeys (action names vs button names) and a paired table of default_hotkeys and sets them up for use in this script
-	reset_from_defaults_tbl = reset_from_defaults_tbl, 	-- Fn takes a defaults table and resets all matching hotkeys in this script to the button strings from it
-	update_hotkey_table = update_hotkey_table, 			-- Fn takes a table of hotkeys (action names vs button names) from an outside script and updates the keys internally in this script to match
-	get_button_string = get_button_string, 				-- Fn takes and action name and returns the full button combination required to trigger an action, including modifiers if they exist
-
-	hotkey_setter = hotkey_setter, 						-- Fn takes an action name and displays an imgui button that you can click then and press an input to assign that input to that action name. Returns true if updated
-	
-	check_hotkey = check_hotkey, 						-- Fn checks if an input (by action name) is just released, and also if its modifiers are down (if they exist). Send "true" as 2nd argument to check if input is down, "1" or use argument#3 to check if just-triggered
-	check_doubletap = check_doubletap,					-- Fn uses 'check_hotkey' to check if an input (by action name) has been pressed twice in the past 0.25 seconds
-	check_hold = check_hold,							-- Fn uses 'check_hotkey' to check if an input (by action name) has been held for as long as its argument#2
-	
-	chk_up = chk_up, 									-- Fn checks if an input (by action name) is released
-	chk_down = chk_down, 								-- Fn checks if an input (by action name) is down
-	chk_trig = chk_trig, 								-- Fn checks if an input (by action name) is just pressed
-	
-	check_kb_key = check_kb_key,						-- Fn checks if a keyboard input is released, down or triggered (by key name)
-	check_mouse_button = check_mouse_button,			-- Fn checks if a mouse input is released, down or triggered (by mbutton name)
-	check_pad_button = check_pad_button,				-- Fn checks if a gamepad input is released, down or triggered (by button name) (such as imgui focus) was removed mid-frame
+	kb = kb, 													-- Keyboard device Managed Object, updated every frame
+	mouse = mouse, 												-- Mouse device Managed Object, updated every frame
+	pad = pad, 													-- Gamepad device Managed Object, updated every frame
+			
+	keys = keys, 												-- Enum of keyboard key names vs key IDs (some tweaked names)
+	buttons = buttons, 											-- Enum of gamepad button names vs button IDs (some tweaked names)
+	mbuttons = mbuttons, 										-- Enum of mouse button names vs button IDs (some tweaked names)
+			
+	hotkeys = hotkeys, 											-- Table of current action names vs button strings
+	default_hotkeys = default_hotkeys, 							-- Table of default action names vs button strings
+			
+	kb_state = kb_state,										-- Table with state (up/down/triggered) of all used keyboard keys, updated every frame
+	gp_state = gp_state, 										-- Table with state (up/down/triggered) of all used gamepad buttons, updated every frame
+	mb_state = mb_state, 										-- Table with state (up/down/triggered) of all used mouse buttons, updated every frame
+			
+	recurse_def_settings = recurse_def_settings, 				-- Fn takes a table 'tbl' and its paired 'defaults_tbl' and copies mismatched/missing fields from defaults_tbl to tbl, then does the same for any child tables of defaults_tbl
+	find_index = find_index, 									-- Fn takes a table and a value (and optionally a key), then finds the index containing a value (or of the value containing that value as a field 'key') in that table
+	merge_tables = merge_tables,								-- Fn takes table A and B then merges table A into table B
+	merge_tables_recursively = merge_tables_recursively,		-- Fn takes table A and B then merges table A into table B and does the same for any child tables in the table
+	generate_statics = generate_statics, 						-- Fn takes a typedef name for a System.Enum and returns a lua table from it
+			
+	setup_hotkeys = setup_hotkeys, 								-- Fn takes a table of hotkeys (action names vs button names) and a paired table of default_hotkeys and sets them up for use in this script
+	reset_from_defaults_tbl = reset_from_defaults_tbl, 			-- Fn takes a defaults table and resets all matching hotkeys in this script to the button strings from it
+	update_hotkey_table = update_hotkey_table, 					-- Fn takes a table of hotkeys (action names vs button names) from an outside script and updates the keys internally in this script to match
+	get_button_string = get_button_string, 						-- Fn takes and action name and returns the full button combination required to trigger an action, including modifiers if they exist
+		
+	hotkey_setter = hotkey_setter, 								-- Fn takes an action name and displays an imgui button that you can click then and press an input to assign that input to that action name. Returns true if updated
+			
+	check_hotkey = check_hotkey, 								-- Fn checks if an input (by action name) is just released, and also if its modifiers are down (if they exist). Send "true" as 2nd argument to check if input is down, "1" or use argument#3 to check if just-triggered
+	check_doubletap = check_doubletap,							-- Fn uses 'check_hotkey' to check if an input (by action name) has been pressed twice in the past 0.25 seconds
+	check_hold = check_hold,									-- Fn uses 'check_hotkey' to check if an input (by action name) has been held for as long as its argument#2
+			
+	chk_up = chk_up, 											-- Fn checks if an input (by action name) is released
+	chk_down = chk_down, 										-- Fn checks if an input (by action name) is down
+	chk_trig = chk_trig, 										-- Fn checks if an input (by action name) is just pressed
+			
+	check_kb_key = check_kb_key,								-- Fn checks if a keyboard input is released, down or triggered (by key name)
+	check_mouse_button = check_mouse_button,					-- Fn checks if a mouse input is released, down or triggered (by mbutton name)
+	check_pad_button = check_pad_button,						-- Fn checks if a gamepad input is released, down or triggered (by button name) (such as imgui focus) was removed mid-frame
 }
 
 return hk
