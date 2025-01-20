@@ -848,11 +848,7 @@ local function copy_fields(src_obj, target_obj, selected_fields, do_simple)
 	for i, field in ipairs(fields) do
 		local name = field:get_name()
 		if (not selected_fields or selected_fields[name] ~= nil) and not (do_simple and (tostring(src_obj[name]):find("REMan") or tostring(target_obj[name]):find("REMan"))) then 
-			print(name)
-			--if name == "CurrentZoneNameList" then print(name, target_obj[name]:get_type_definition():get_full_name(), src_obj[name]:get_type_definition():get_full_name()) end
-			if target_obj.CurrentZoneNameList then print(111, target_obj.CurrentZoneNameList:get_type_definition():get_full_name()) end
 			target_obj[name] = src_obj[name] 
-			if target_obj.CurrentZoneNameList then print(222, target_obj.CurrentZoneNameList:get_type_definition():get_full_name()) end
 		end
 	end
 	return target_obj
