@@ -3,7 +3,7 @@ local modName =  "_ScriptCore: Functions LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
 local modUpdated = "01/24/2025"
-local modVersion = "v1.1.91"
+local modVersion = "v1.1.91b"
 local modCredits = "praydog"
 
 --/////////////////////////////////////--
@@ -1161,7 +1161,7 @@ local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
 	local insert_idx = bank_count
 	for i=0, bank_count-1 do
 		local dbank = motion:getDynamicMotionBank(i)
-		if dbank and (dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower())) then
+		if dbank and ((dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower()))) then
 			new_dbank, insert_idx = dbank, i
 			break
 		end
