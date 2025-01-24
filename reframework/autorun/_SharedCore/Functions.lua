@@ -1,9 +1,9 @@
 --/////////////////////////////////////--
-local modName =  "ScriptCore: Functions LUA"
+local modName =  "_ScriptCore: Functions LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
-local modUpdated = "12/29/2024"
-local modVersion = "v1.1.82"
+local modUpdated = "01/24/2025"
+local modVersion = "v1.1.91"
 local modCredits = "praydog"
 
 --/////////////////////////////////////--
@@ -1093,7 +1093,6 @@ ray_query:enableNearSort()
 local filter_info = ray_query:get_FilterInfo()
 filter_info:set_Group(0)
 
-local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
 local shape_ray_method = sdk.find_type_definition("via.physics.System"):get_method("castSphere(via.Sphere, via.vec3, via.vec3, System.UInt32, via.physics.FilterInfo, via.physics.ShapeCastResult)")
 local shape_ray_method2 = sdk.find_type_definition("via.physics.System"):get_method("castShape(via.physics.ShapeCastQuery, via.physics.ShapeCastResult)")
 local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
@@ -1153,6 +1152,30 @@ local function test_ray(start_pos, end_pos)
 		end
 	end
 	return results
+end
+
+--Adds a new via.motion.DynamicMotionBank to a via.motion.Motion, making accessible the animations from 'motlist_path' by using the BankID 'new_bank_id'
+local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
+	local new_dbank
+	local bank_count = motion:getDynamicMotionBankCount()
+	local insert_idx = bank_count
+	for i=0, bank_count-1 do
+		local dbank = motion:getDynamicMotionBank(i)
+		if dbank and (dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower())) then
+			new_dbank, insert_idx = dbank, i
+			break
+		end
+	end
+	if not new_dbank then
+		motion:setDynamicMotionBankCount(bank_count+1)
+	end
+	new_dbank = new_dbank or sdk.create_instance("via.motion.DynamicMotionBank"):add_ref()
+	new_dbank:set_MotionList(func.create_resource("via.motion.MotionListResource", motlist_path))
+	new_dbank:set_OverwriteBankID(true)
+	new_dbank:set_BankID(new_bank_id)
+	motion:setDynamicMotionBank(insert_idx, new_dbank)
+	
+	return new_dbank
 end
 
 func = {
@@ -1223,5 +1246,6 @@ func = {
 	spawn_gameobj = spawn_gameobj,
 	--clone_gameobj = clone_gameobj, --incomplete
 	split = split,
+	add_dynamic_motionbank = add_dynamic_motionbank,
 }
 return func

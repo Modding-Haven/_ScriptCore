@@ -1,9 +1,9 @@
 --------------------------------------/--
-local modName =  "ScriptCore: Imgui LUA"
+local modName =  "_ScriptCore: Imgui LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
-local modUpdated = "12/23/2024"
-local modVersion = "v1.0.50"
+local modUpdated = "01/20/2025"
+local modVersion = "v1.0.51"
 local modCredits = "praydog"
 
 --------------------------------------/--
@@ -18,8 +18,8 @@ local colors = {
     green = {0, 255, 0, 255},
     blue = {0, 0, 255, 255},
     cyan = {0, 255, 255, 255},
-    gold ={255, 187, 0, 255},
-    orange ={255, 157, 50, 255},
+    gold = {255, 187, 0, 255},
+    orange = {255, 157, 50, 255},
     cerulean = {0, 171, 240, 255},
     deepRed = {227, 41, 27, 255},
     safetyYellow = {238, 210, 2, 255},
@@ -87,6 +87,14 @@ local ImGuiCol = {
 local function tooltip(text, do_force)
     if do_force or imgui.is_item_hovered() then
         imgui.set_tooltip(text)
+    end
+end
+
+local function tooltip_colored(text, color, do_force)
+    if do_force or imgui.is_item_hovered() then
+		imgui.push_style_color(ImGuiCol.Text, color)
+        imgui.set_tooltip(text)
+		imgui.pop_style_color(1)
     end
 end
 
@@ -1553,6 +1561,7 @@ ui = {
     textButton_ColoredValue = textButton_ColoredValue,                          -- Draws a styled text button '[ Button N ]', where N is a value that can be updated and colored.
 	imgui_safe_input = imgui_safe_input,										-- A wrapper for most imgui input functions that lets you, for example, drag on a drag_float without returning that it's been changed until you let go
 	tooltip = tooltip,															-- Simple tooltip display function
+	tooltip_colored = tooltip_colored,											-- An overloaded version of the tooltip function. The difference is that the tooltip text can be colored.
 	FilePicker = FilePicker,													-- File picker window object, lets you pick a file from the reframework/data or natives folder and returns the chosen path
 	ImGuiCol = ImGuiCol,														-- List of ImGuiCol flags for use with imgui.push_style_color
 	to_argb = to_argb,															-- Converts a Vector4f RGBA color into a UInt32 color
