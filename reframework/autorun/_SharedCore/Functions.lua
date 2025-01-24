@@ -1,10 +1,10 @@
 --/////////////////////////////////////--
--- Functions LUA
+local modName =  "_ScriptCore: Functions LUA"
 
--- Authors: SilverEzredes; alphaZomega
--- Updated: 04/08/2024
--- Version: v1.1.4
--- Special Thanks to: praydog
+local modAuthor = "SilverEzredes; alphaZomega"
+local modUpdated = "01/24/2025"
+local modVersion = "v1.1.91c"
+local modCredits = "praydog"
 
 --/////////////////////////////////////--
 local enums = {}
@@ -90,46 +90,6 @@ local function get_GameObjectComponent(GameObject, ComponentType)
 	return GameObject and GameObject:call("getComponent(System.Type)", sdk.typeof(ComponentType))
 end
 
-local function get_Field(GameObject, FieldName)
-    return GameObject:get_field(FieldName)
-end
-
-local function call_Method(GameObject, MethodName, NewValue)
-    return GameObject:call(MethodName, NewValue)
-end
-
-local function boolean_ToInt(BoolName)
-    if BoolName then
-        return 1
-      else
-        return 0
-    end
-end
-
-local function boolean_ToFloat(BoolName)
-    if BoolName then
-        return 1.0
-      else
-        return 0.0
-    end
-end
-
-local function int_ToBoolean(IntName)
-    if IntName == 1 then
-        return true
-      else
-        return false
-    end
-end
-
-local function float_ToBoolean(FloatName)
-    if FloatName == 1.0 then
-        return true
-      else
-        return false
-    end
-end
-
 local function convert_rgb_to_vector3f(red, green, blue)
     local vector = Vector3f.new(red / 255, green / 255, blue / 255)
     return vector
@@ -143,6 +103,10 @@ local function convert_vector3f_to_rgb(vector)
 end
 
 local function convert_rgba_to_vector4f(red, green, blue, alpha)
+	if type(red) == "table" then
+		red, green, blue, alpha = red[1], red[2], red[3], red[4]
+	end
+
     local vector = Vector4f.new(red / 255, green / 255, blue / 255, alpha / 255)
     return vector
 end
@@ -153,6 +117,10 @@ local function convert_float4_to_vector4f(red, green, blue, alpha)
 end
 
 local function convert_vector4f_to_rgba(vector)
+	if type(vector) == "table" then
+		vector.x, vector.y, vector.z, vector.w = vector[1], vector[2], vector[3], vector[4]
+	end
+
     local R = math.floor(vector.x * 255)
     local G = math.floor(vector.y * 255)
     local B = math.floor(vector.z * 255)
@@ -160,6 +128,35 @@ local function convert_vector4f_to_rgba(vector)
     return R, G, B, A
 end
 
+--Convert RGBA to ABGR, args can take either a table with 4 values or 4 different ints
+-- myCoolColorTable = {255, 187, 0, 255} ||
+-- red = 255, green = 72, blue = 137, alpha = 255,
+local function convert_rgba_to_ABGR(r, g, b, a)
+    if type(r) == "table" then
+        r, g, b, a = r[1], r[2], r[3], r[4]
+    end
+
+    r = math.min(255, math.max(0, r))
+    g = math.min(255, math.max(0, g))
+    b = math.min(255, math.max(0, b))
+    a = math.min(255, math.max(0, a))
+
+    local abgr = (a << 24) | (b << 16) | (g << 8) | r
+    return abgr
+end
+--Counts the number of elements in a table
+local function countTableElements(tbl)
+    local count = 0
+    for _, value in pairs(tbl) do
+        if type(value) == "table" then
+            count = count + countTableElements(value)
+        else
+            count = count + 1
+        end
+    end
+    return count
+end
+--Checks if a table contains the specified element
 local function table_contains(table, element)
     for _, value in ipairs(table) do
         if value == element then
@@ -168,20 +165,10 @@ local function table_contains(table, element)
     end
     return false
 end
-
+--Draws a tooltip, can be forced
 local function tooltip(text, do_force)
     if do_force or imgui.is_item_hovered() then
         imgui.set_tooltip(text)
-    end
-end
-
-local function colored_TextSwitch(SampleText, StateSwitchName, State_01, Color_01, State_02, Color_02)
-    imgui.button(SampleText)
-    imgui.same_line()
-    if StateSwitchName then
-        imgui.text_colored(State_01, Color_01)
-    else
-        imgui.text_colored(State_02, Color_02)
     end
 end
 
@@ -193,10 +180,10 @@ local function create_resource(resource_type, resource_path)
 	return new_resource:create_holder(resource_type .. "Holder"):add_ref()
 end
 
-
-local function isBKF(var)
-    if var then
-        return "<" .. var .. ">k__BackingField"
+--Returns a field as a BackingField field
+local function isBKF(field)
+    if field then
+        return "<" .. field .. ">k__BackingField"
     end
 end
 
@@ -207,6 +194,26 @@ local function get_fmt_string(tbl)
 		if len and len > zeroes_ct then zeroes_ct = len end
 	end
 	return "%0"..zeroes_ct.."d"
+end
+
+local fms = {}
+local function get_fields_and_methods(typedef)
+	local name = typedef:get_full_name()
+	if fms[name] then return fms[name][1], fms[name][2] end
+	local fields, methods = typedef:get_fields(), typedef:get_methods()
+	local parent_type = typedef:get_parent_type()
+	while parent_type and parent_type:get_full_name() ~= "System.Object" and parent_type:get_full_name() ~= "System.ValueType" do
+		for i, field in ipairs(parent_type:get_fields()) do
+			table.insert(fields, field)
+		end
+		for i, method in ipairs(parent_type:get_methods()) do
+			table.insert(methods, method)
+		end
+		parent_type = parent_type:get_parent_type()
+	end
+	fms[name] = {fields, methods}
+	return fields, methods
+	
 end
 
 REMgdObj = {
@@ -289,6 +296,14 @@ end
 
 local function orderedPairs(t)
     return orderedNext, t, nil
+end
+
+local function split(s, delimiter)
+	local result = {}
+	for match in (s..delimiter):gmatch("(.-)"..delimiter) do
+		table.insert(result, match)
+	end
+	return result
 end
 
 local function deepcopy(orig)
@@ -435,6 +450,7 @@ local function clone_array(re_array, new_array_sz, td_name, do_copy_only)
 	return new_array
 end
 
+
 --Makes a new array with the same elements
 local function copy_array(re_array, new_array_sz, td_name)
 	return clone_array(re_array, new_array_sz, td_name, true)
@@ -501,6 +517,18 @@ local function append_to_list(list, new_item)
 	return list._size, new_item
 end
 
+--Removes an element from a System.Array at index 'idx'
+local function remove_array(array, rem_idx, new_size)
+	local new_arr = sdk.create_managed_array(array:get_type_definition():get_full_name():gsub("%[%]", ""), new_size or #array-1):add_ref()
+	local ctr = 0
+	for i, item in pairs(array) do
+		if i ~= rem_idx then 
+			new_arr[ctr] = item 
+			ctr = ctr + 1
+		end
+	end
+	return new_arr
+end
 --Inserts an element or a table/System.Array of elements ('array_or_elem_b') into a System.Array 'array_a' at position 'insert_idx'
 local function insert_array(array_a, array_or_elem_b, insert_idx)
 	local insert_elems = (type(array_or_elem_b)=="table" or tostring(type(array_or_elem_b)):find("Array")) and merge_tables({}, array_or_elem_b) or {array_or_elem_b}
@@ -614,7 +642,7 @@ local function get_fmt_string(tbl)
 	return "%0"..zeroes_ct.."d"
 end
 
---Loads a json file from a path and converts all its string number keys into actual numbers in a new table, then returns that table
+--Loads json data from a table and converts all its string number keys into actual numbers in a new table, then returns that table
 local function convert_tbl_to_numeric_keys(json_tbl)
 	local function recurse(tbl)
 		local t = {}
@@ -629,10 +657,11 @@ end
 --Converts a REManagedObject into a json table. 'tbl_or_object' is a REManagedObject or a Lua table containing them (it will recurse Lua subtables too). 
 --'max_layers' is the maximum number of layers deep it can recurse, 'skip_arrays' makes it not dump arrays. 'skip_collections' makes it skip Collections objects such as Generic.Lists
 --'skip_method_objs' makes it skip dumping REManagedObjects returned from methods, and skip methods entirely if set to '1'. 'convert_enums' makes it save System.Enum values as the strings they represent
-local function convert_to_json_tbl(tbl_or_object, max_layers, skip_arrays, skip_collections, skip_method_objs, convert_enums)
+local function convert_to_json_tbl(tbl_or_object, max_layers, skip_arrays, skip_collections, skip_method_objs)
 	
 	max_layers = max_layers or 15
 	local xyzw = {"x", "y", "z", "w"}
+	local XYZW = {"X", "Y", "Z", "W"}
 	local found_objs = {}
 	local fms = {}
 	
@@ -659,7 +688,7 @@ local function convert_to_json_tbl(tbl_or_object, max_layers, skip_arrays, skip_
 	end
 	
 	local function recurse(obj, layer_no)
-		if layer_no < max_layers and not found_objs[obj] then
+		if layer_no < max_layers and not found_objs[obj] then -- or tostring(obj):find("ValueType")) then
 			found_objs[obj] = true
 			local new_tbl = {}
 			if type(obj) == "table" then
@@ -680,22 +709,35 @@ local function convert_to_json_tbl(tbl_or_object, max_layers, skip_arrays, skip_
 				local parent_vt = td:is_value_type()
 				if td:is_a("System.Array") then
 					if not skip_arrays then
-						local elem_td, is_obj
+						local elem_td = sdk.find_type_definition(td_name:gsub("%[%]", ""))
 						local fmt_string = get_fmt_string(obj)
-						for i, elem in pairs(obj) do
-							local element = obj:get_Item(i)
-							if element == nil then break end
-							elem_td = elem_td or (elem and elem:get_type_definition())
-							is_obj = is_obj or elem_td and (type(element) == "userdata" and (elem_td:is_value_type() or sdk.is_managed_object(element)) and not parent_vt)
-							element = (is_obj and element.add_ref and element:add_ref()) or element
-							new_tbl[string.format(fmt_string, i)] = get_non_null_value((is_obj and recurse(element, layer_no + 1)) or element)
+						local is_obj = false
+						for i, elem in pairs(lua_get_array(obj, true)) do
+							is_obj = is_obj or (elem_td and type(elem) == "userdata" and (elem_td:is_value_type() or sdk.is_managed_object(elem)))
+							elem = (is_obj and elem.add_ref and elem:add_ref()) or elem
+							new_tbl[string.format(fmt_string, i-1)] = get_non_null_value((is_obj and recurse(elem, layer_no + 1)) or elem)
 						end
 					end
 				elseif td_name:find("via%.[Ss]fix") then
-					return read_sfix(obj)
+					local out = read_sfix(obj)
+					if type(out) ~= "number" then
+						for i, name in ipairs(xyzw) do
+							if out[name] == nil then break end
+							new_tbl[name] = out[name]
+						end
+						return get_non_null_value(new_tbl)
+					end
+					return get_non_null_value(out)
 				elseif td:get_field("x") then --ValueTypes with xyzw
 					local xtype = td:get_field("x"):get_type()
 					for i, name in ipairs(xyzw) do
+						new_tbl[name] = obj[name]
+						if new_tbl[name] == nil then break end
+						if xtype:is_a("via.sfix") then new_tbl[name] = new_tbl[name]:ToFloat() end
+					end
+				elseif td:get_field("X") then --ValueTypes with XYZW
+					local xtype = td:get_field("X"):get_type()
+					for i, name in ipairs(XYZW) do
 						new_tbl[name] = obj[name]
 						if new_tbl[name] == nil then break end
 						if xtype:is_a("via.sfix") then new_tbl[name] = new_tbl[name]:ToFloat() end
@@ -717,44 +759,27 @@ local function convert_to_json_tbl(tbl_or_object, max_layers, skip_arrays, skip_
 					end
 				else
 					local fields, methods = get_fields_and_methods(td)
-					if skip_method_objs ~= 1 then
-						for i, method in ipairs(methods) do
-							if not method:is_static() and method:get_num_params() == 0 and method:get_name():find("[Gg]et") == 1 and not method:get_return_type():is_a("via.Component") then
-								local try, mdata = pcall(method.call, method, obj)
-								if try and mdata ~= nil then
-									local m_td = method:get_return_type()
-									if convert_enums and m_td:is_a("System.Enum") then
-										local m_td_name = m_td:get_full_name()
-										local enum = enums[m_td_name] or generate_statics(m_td_name)
-										enums[m_td_name] = enum
-										mdata = enum[mdata]
-									end
-									if not skip_method_objs and sdk.is_managed_object(mdata) and (obj[method:get_name():gsub("[Gg]et", "set")] or obj[method:get_name():gsub("[Gg]et", "Set")]) then
-										new_tbl[method:get_name():gsub("[Gg]et", "")] = get_non_null_value(recurse(mdata:add_ref(), layer_no + 1) or mdata)
-									else
-										new_tbl[method:get_name():gsub("[Gg]et", "")] = get_non_null_value(mdata) 
-									end
+					for i, field in pairs(fields) do
+						local name = field:get_name()
+						if not field:is_static() and name:sub(1,2) ~= "<>" and name ~= "_object" then
+							local try, fdata = pcall(field.get_data, field, obj)
+							local should_recurse = try and type(fdata) == "userdata" and (field:get_type():is_value_type() or sdk.is_managed_object(fdata))
+							new_tbl[name] = try and get_non_null_value(((should_recurse and recurse(fdata, layer_no + 1)) or fdata))
+						end
+					end
+					for i, method in pairs(methods) do
+						local name = method:get_name()
+						if not method:is_static() and method:get_num_params() == 0 and name:find("[Gg]et") == 1 and not method:get_return_type():is_a("via.Component") then
+							local try, mdata = pcall(method.call, method, obj)
+							if try and mdata ~= nil then
+								if not skip_method_objs and sdk.is_managed_object(mdata) and (obj[name:gsub("[Gg]et", "set")] or obj[name:gsub("[Gg]et", "Set")]) then
+									new_tbl[name:gsub("[Gg]et", "")] = get_non_null_value(recurse(mdata:add_ref(), layer_no + 1) or mdata)
+								else
+									new_tbl[name:gsub("[Gg]et", "")] = get_non_null_value(mdata) 
 								end
 							end
 						end
 					end
-					for i, field in ipairs(fields) do
-						local name = field:get_name()
-						if not field:is_static() and name:sub(1,2) ~= "<>" and name ~= "_object" then
-							local f_td = field:get_type()
-							local try, fdata = pcall(field.get_data, field, obj)
-							if convert_enums and f_td:is_a("System.Enum") then
-								local f_td_name = f_td:get_full_name()
-								local enum = enums[f_td_name] or generate_statics(f_td_name)
-								enums[f_td_name] = enum
-								new_tbl[field:get_name()] = enum[fdata]
-							else
-								local should_recurse = try and type(fdata) == "userdata" and (f_td:is_value_type() or sdk.is_managed_object(fdata))
-								new_tbl[field:get_name()] = try and get_non_null_value(((should_recurse and recurse(fdata, layer_no + 1)) or fdata))
-							end
-						end
-					end
-
 				end
 			end
 			return get_non_null_value(new_tbl)
@@ -818,10 +843,11 @@ local function edit_objs(objs, fields)
 end
 
 --Copy TDB fields from one object to another without cloning, optionally only copying with fields from 'selected_fields':
-local function copy_fields(src_obj, target_obj, selected_fields)
-	for i, field in ipairs(target_obj:get_type_definition():get_fields()) do
+local function copy_fields(src_obj, target_obj, selected_fields, do_simple)
+	local fields = get_fields_and_methods(target_obj:get_type_definition())
+	for i, field in ipairs(fields) do
 		local name = field:get_name()
-		if not selected_fields or selected_fields[name] ~= nil then 
+		if (not selected_fields or selected_fields[name] ~= nil) and not (do_simple and (tostring(src_obj[name]):find("REMan") or tostring(target_obj[name]):find("REMan"))) then 
 			target_obj[name] = src_obj[name] 
 		end
 	end
@@ -829,11 +855,51 @@ local function copy_fields(src_obj, target_obj, selected_fields)
 end
 
 --Wrapper for copy_fields to handle a list of objects with the same fields
-local function copy_fields_to_objs(src_obj, target_objs, selected_fields)
+local function copy_fields_to_objs(src_obj, target_objs, selected_fields, do_simple)
 	for i, target_obj in pairs(target_objs) do
-		copy_fields(src_obj, target_obj, selected_fields)
+		copy_fields(src_obj, target_obj, selected_fields, do_simple)
 	end
 end
+
+--Copy the results of simple TDB get/set methods from one object to another
+--DANGEROUS, MAY CRASH
+local function copy_props(src_obj, target_obj, selected_get_methods, ignore_methods, do_recursive)
+	local fields, methods = get_fields_and_methods(target_obj:get_type_definition())
+	local methods_by_name = {}
+	for i, method in ipairs(methods) do
+		methods_by_name[method:get_name()] = method
+	end
+	for i, method in ipairs(methods) do
+		local name = method:get_name()
+		if (not selected_get_methods or selected_get_methods[name] ~= nil) then
+			local setter = name:sub(1,4) == "get_" and methods_by_name[name:gsub("get_", "set_")]
+			if setter and setter:get_num_params() == 1 and method:get_num_params() == 0 then 
+				--log.info(setter:get_name() .. "  " .. tostring(to_set) .. "  " .. tostring(ignore_methods[setter:get_name()]))
+				local to_set = method:call(src_obj)
+				--print(setter:get_name(), tostring(to_set), ignore_methods[setter:get_name()])
+				local is_obj = to_set and sdk.is_managed_object(to_set)
+				if to_set ~= nil and not (is_obj and (to_set:get_type_definition():is_a("via.Component"))) and (not ignore_methods or not ignore_methods[setter:get_name()]) then
+					if is_obj then to_set = to_set:add_ref() end
+					setter:call(target_obj, to_set)
+					--pcall(setter.call, setter, target_obj, to_set)
+				end
+			end
+		end
+	end
+	return target_obj
+end
+
+--[[
+--Copy TDB fields from one object to another without cloning, optionally only copying with fields from 'selected_fields':
+local function copy_fields_simple(src_obj, target_obj, selected_fields)
+	for i, field in ipairs(target_obj:get_type_definition():get_fields()) do
+		local name = field:get_name()
+		if (not selected_fields or selected_fields[name] ~= nil) and not tostring(src_obj[name]):find("REManaged") then 
+			target_obj[name] = src_obj[name] 
+		end
+	end
+	return target_obj
+end]]
 
 -- Make a duplicate of a managed object
 clone = function(m_obj, fields, do_clone_props)
@@ -870,6 +936,151 @@ clone = function(m_obj, fields, do_clone_props)
 	return new_obj
 end
 
+--Adds a component to a gameobject, optionally setting fields from a fields table
+local function add_component(gameobj, comp_name, fields)
+	local typedef = sdk.find_type_definition(comp_name)
+	local new_component = gameobj:call("createComponent(System.Type)", typedef:get_runtime_type()):add_ref()
+	if typedef:get_method(".ctor()") then new_component:call(".ctor()") end
+	if fields then 
+		edit_obj(new_component, fields)
+	end
+	
+	return new_component
+end
+
+--Creates a new gameobject at position, rotation and in a given folder
+--Uses a table of string component type names to create new components for the gameobject
+local function spawn_gameobj(name, position, rotation, folder, components_list)
+	local gameobj = sdk.find_type_definition("via.GameObject"):get_method("create(System.String, via.Folder)"):call(nil, name, folder or 0)
+	if gameobj then 
+		gameobj:call(".ctor")
+		gameobj:set_Name(name)
+		local xform = gameobj:get_Transform()
+		if position then xform:set_Position(position) end
+		if rotation then xform:set_Rotation(rotation) end
+		if components_list then 
+			for i, comp_name in ipairs(components_list) do
+				add_component(gameobj, comp_name)
+			end
+		end
+		
+		return gameobj:add_ref()
+	end
+end
+
+--Clones a gameobject
+local function clone_gameobj(gameobj, position, rotation, folder)
+	local existing_objs = {}
+	local existing_map = {}
+	local existing_set = {}
+	local old_components = gameobj:get_Components():add_ref()
+	local already = {}
+	
+	local function get_existing(object, parents_string, comp_idx)
+		parents_string = parents_string or comp_idx
+		local fields, methods = get_fields_and_methods(object:get_type_definition())
+		for i, field in ipairs(fields) do
+			local content = field:get_data(object)
+			if content and sdk.is_managed_object(content) and not (content:get_type_definition():is_a("via.Component") or content:get_type_definition():is_a("via.GameObject")) then
+				if not existing_map[new_parents_string] then
+					local new_parents_string = parents_string .. "-" .. field:get_name()
+					table.insert(existing_objs, new_parents_string)
+					existing_map[new_parents_string] = content
+					if not already[content] and not content:get_type_definition():is_a("via.UserData") then 
+						already[content] = true
+						get_existing(content, new_parents_string)
+					end
+				end
+			end
+		end
+	end
+	
+	local comp_list = {}
+	for i=1, #old_components-1 do
+		table.insert(comp_list, old_components[i]:get_type_definition():get_full_name())
+		get_existing(old_components[i], nil, i)
+	end
+	
+	local xform = gameobj:get_Transform()
+	local clone_go = spawn_gameobj(gameobj:get_Name(), position or xform:get_Position(), rotation or xform:get_Rotation(), folder or gameobj:get_Folder(), comp_list)
+	local new_components = {}
+	
+	for i, component in pairs(clone_go:get_Components()) do
+		if component then
+			new_components[i] = component
+			copy_fields(old_components[i], component, nil, true)
+			copy_props(old_components[i], component, nil, nil)
+		end
+	end
+	
+	--[[
+	--make sure missing managed objects are created and fields that are references to the same object in the original gameobject are not references to unique objects in the new one:
+	for i, parents_string in ipairs(existing_objs) do 
+		local comp_idx = parents_string:match("(.-)%-")
+		local splitted = split(parents_string:gsub(comp_idx.."%-", ""), "-")
+		local old_content = existing_map[parents_string]
+		local current_obj = new_components[tonumber(comp_idx)]
+		
+		for j, field_name in ipairs(splitted) do
+			local content = current_obj[field_name]
+			if not splitted[j+1] then
+				if existing_set[old_content] then
+					current_obj[field_name] = existing_set[old_content]
+				elseif old_content:get_type_definition():is_a("via.UserData") then
+					content = old_content
+					current_obj[field_name] = old_content
+				else
+					if not content then 
+						content = sdk.create_instance(old_content:get_type_definition():get_full_name()) or sdk.create_instance(old_content:get_type_definition():get_full_name(), true)
+						current_obj[field_name] = (content or old_content):add_ref()
+					end
+					copy_fields(old_content, content, nil, true)
+				end
+				existing_set[old_content] = existing_set[old_content] or content
+			end
+			current_obj = content or current_obj
+		end
+	end
+	
+	clone_go:set_UpdateSelf(false)]]
+	return clone_go
+end
+
+--Dampens (smoothly transitions) between two numbers, matrices, vectors or quaternions, with the speed of transition determined by 'factor' (0-1)
+--You can store the 'current' value (to use across multiple frames) just as a field of this 'damping' table
+--damping.timescale_mult and damping.deltatime should be set every frame to make this framerate-independent
+local damping
+damping = {
+	timescale_mult = 1, 
+	deltatime = 1,
+    fn_float = function(source, target, factor)
+        return source + (target - source) * factor * damping.timescale_mult * damping.deltatime
+    end,
+    fn_mat = function(source, target, factor)
+        local result = Matrix4x4f.identity()
+        local mult = factor * damping.timescale_mult * damping.deltatime
+        for i = 0, 3 do
+            result[i].x = source[i].x + (target[i].x - source[i].x) * mult
+            result[i].y = source[i].y + (target[i].y - source[i].y) * mult
+            result[i].z = source[i].z + (target[i].z - source[i].z) * mult
+            result[i].w = source[i].w + (target[i].w - source[i].w) * mult
+        end
+        return result
+    end,
+	fn_vec = function(source, target, factor)
+		local mult = factor * damping.timescale_mult * damping.deltatime
+		local x = source.x + (target.x - source.x) * mult
+		local y = source.y + (target.y - source.y) * mult
+		local z = source.z and source.z + (target.z - source.z) * mult
+		local w = source.w and source.w + (target.w - source.w) * mult
+		local result = source.w and Vector4f.new(x,y,z,w) or source.z and Vector3f.new(x,y,z) or Vector2f.new(x,y)
+		return result
+	end,
+	fn_quat = function(current, target, factor)
+		return current:slerp(target, factor * damping.timescale_mult * damping.deltatime)
+	end,
+}
+
 --Ray Casting functions from RE2R Classic:
 local via_physics_system = sdk.get_native_singleton("via.physics.System")
 local contact_pt_td = sdk.find_type_definition("via.physics.ContactPoint")
@@ -882,7 +1093,6 @@ ray_query:enableNearSort()
 local filter_info = ray_query:get_FilterInfo()
 filter_info:set_Group(0)
 
-local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
 local shape_ray_method = sdk.find_type_definition("via.physics.System"):get_method("castSphere(via.Sphere, via.vec3, via.vec3, System.UInt32, via.physics.FilterInfo, via.physics.ShapeCastResult)")
 local shape_ray_method2 = sdk.find_type_definition("via.physics.System"):get_method("castShape(via.physics.ShapeCastQuery, via.physics.ShapeCastResult)")
 local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
@@ -896,7 +1106,7 @@ shape_cast_query:set_FilterInfo(filter_info)
 
 --Casts a ray from 'start_position' to 'end_position', intercepting objects using 'layer' and 'maskbits' collision flags. If 'shape_radius' is nil, it casts a line. Otherwise it casts a sphere of 'shape_radius' radius
 --'options' are RE Engine raycast options, not sure what they all are besides '1' making it return multiple things. 'do_reverse' returns the array of found objects in reverse order
---Returns a Lua table of {Found_GameObject, Ray_Stop_Position} tables sorted by distance from the start_position
+--Returns a Lua table of {Found_GameObject, Ray_Stop_Position} tuples sorted by distance from the start_position
 local function cast_ray(start_position, end_position, layer, maskbits, shape_radius, options, do_reverse)
 	local result = {}
 	local result_obj = shape_radius and shape_cast_result or ray_result
@@ -927,6 +1137,23 @@ local function cast_ray(start_position, end_position, layer, maskbits, shape_rad
 	return result
 end
 
+--Casts 10,000 rays to see which layers and maskbits detect what
+local function test_ray(start_pos, end_pos)
+	local cam_mtx = not (start_pos and end_pos) and sdk.get_primary_camera():get_WorldMatrix()
+	start_pos = start_pos or cam_mtx[3]
+	end_pos = end_pos or cam_mtx[3] + cam_mtx[2] * -1000 
+	local results = {}
+	
+	for layer=0, 100 do
+		results[layer] = {}
+		for maskbits=0, 100 do
+			local out = cast_ray(start_pos, end_pos, layer, maskbits)[1]
+			results[layer][maskbits] = out and out[1]
+		end
+	end
+	return results
+end
+
 --Adds a new via.motion.DynamicMotionBank to a via.motion.Motion, making accessible the animations from 'motlist_path' by using the BankID 'new_bank_id'
 local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
 	local new_dbank
@@ -934,7 +1161,7 @@ local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
 	local insert_idx = bank_count
 	for i=0, bank_count-1 do
 		local dbank = motion:getDynamicMotionBank(i)
-		if dbank and (dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower())) then
+		if dbank and ((dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower()))) then
 			new_dbank, insert_idx = dbank, i
 			break
 		end
@@ -948,28 +1175,22 @@ local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
 	new_dbank:set_BankID(new_bank_id)
 	motion:setDynamicMotionBank(insert_idx, new_dbank)
 	
-	return new_dbank 
+	return new_dbank
 end
 
 func = {
-    check_GameName = check_GameName,
+	check_GameName = check_GameName,
     get_CurrentScene = get_CurrentScene,
     get_GameObject = get_GameObject,
     get_GameObjects = get_GameObjects,
     get_GameObjectComponent = get_GameObjectComponent,
-    get_Field = get_Field,
-    call_Method = call_Method,
-    boolean_ToInt = boolean_ToInt,
-    boolean_ToFloat = boolean_ToFloat,
-    int_ToBoolean = int_ToBoolean,
-    float_ToBoolean = float_ToBoolean,
     convert_rgb_to_vector3f = convert_rgb_to_vector3f,
     convert_vector3f_to_rgb = convert_vector3f_to_rgb,
     convert_rgba_to_vector4f = convert_rgba_to_vector4f,
     convert_vector4f_to_rgba = convert_vector4f_to_rgba,
     convert_float4_to_vector4f = convert_float4_to_vector4f,
+	convert_rgba_to_ABGR = convert_rgba_to_ABGR,
     tooltip = tooltip,
-    colored_TextSwitch = colored_TextSwitch,
     create_resource = create_resource,
     table_contains = table_contains,
     generate_statics_global = generate_statics_global,
@@ -981,6 +1202,7 @@ func = {
 	convert_to_json_tbl = convert_to_json_tbl,
     deepcopy = deepcopy,
     compareTables = compareTables,
+	countTableElements = countTableElements,
 	remove_MissingElements = remove_MissingElements,
 	get_children = get_children,
 	is_child_of = is_child_of,
@@ -1001,6 +1223,7 @@ func = {
 	append_to_array = append_to_array,
 	append_to_list = append_to_list,
 	insert_array = insert_array,
+	remove_array = remove_array,
 	insert_list = insert_list,
 	find_index = find_index,
 	find_key = find_key,
@@ -1016,6 +1239,13 @@ func = {
 	copy_fields = copy_fields,
 	copy_fields_to_objs = copy_fields_to_objs,
 	cast_ray = cast_ray,
+	test_ray = test_ray,
+	damping = damping,
+	copy_props = copy_props,
+	add_component = add_component,
+	spawn_gameobj = spawn_gameobj,
+	--clone_gameobj = clone_gameobj, --incomplete
+	split = split,
 	add_dynamic_motionbank = add_dynamic_motionbank,
 }
 return func
