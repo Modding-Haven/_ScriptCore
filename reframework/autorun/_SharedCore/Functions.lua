@@ -2,8 +2,8 @@
 local modName =  "_ScriptCore: Functions LUA"
 
 local modAuthor = "SilverEzredes; alphaZomega"
-local modUpdated = "12/20/2024"
-local modVersion = "v1.1.8"
+local modUpdated = "01/24/2025"
+local modVersion = "v1.1.91c"
 local modCredits = "praydog"
 
 --/////////////////////////////////////--
@@ -90,46 +90,6 @@ local function get_GameObjectComponent(GameObject, ComponentType)
 	return GameObject and GameObject:call("getComponent(System.Type)", sdk.typeof(ComponentType))
 end
 
-local function get_Field(GameObject, FieldName)
-    return GameObject:get_field(FieldName)
-end
-
-local function call_Method(GameObject, MethodName, NewValue)
-    return GameObject:call(MethodName, NewValue)
-end
-
-local function boolean_ToInt(BoolName)
-    if BoolName then
-        return 1
-      else
-        return 0
-    end
-end
-
-local function boolean_ToFloat(BoolName)
-    if BoolName then
-        return 1.0
-      else
-        return 0.0
-    end
-end
-
-local function int_ToBoolean(IntName)
-    if IntName == 1 then
-        return true
-      else
-        return false
-    end
-end
-
-local function float_ToBoolean(FloatName)
-    if FloatName == 1.0 then
-        return true
-      else
-        return false
-    end
-end
-
 local function convert_rgb_to_vector3f(red, green, blue)
     local vector = Vector3f.new(red / 255, green / 255, blue / 255)
     return vector
@@ -168,11 +128,10 @@ local function convert_vector4f_to_rgba(vector)
     return R, G, B, A
 end
 
---Convert RGBA to AGBR, args can take either a table with 4 values or 4 different ints
--- i.e.: 
--- myCoolColorTable = {255, 187, 0, 255} 
--- myCoolColorRed = 255, myCoolColorGreen = 72, myCoolColorBlue = 137, myCoolColorAlpha = 255,
-local function convert_rgba_to_AGBR(r, g, b, a)
+--Convert RGBA to ABGR, args can take either a table with 4 values or 4 different ints
+-- myCoolColorTable = {255, 187, 0, 255} ||
+-- red = 255, green = 72, blue = 137, alpha = 255,
+local function convert_rgba_to_ABGR(r, g, b, a)
     if type(r) == "table" then
         r, g, b, a = r[1], r[2], r[3], r[4]
     end
@@ -182,10 +141,22 @@ local function convert_rgba_to_AGBR(r, g, b, a)
     b = math.min(255, math.max(0, b))
     a = math.min(255, math.max(0, a))
 
-    local agbr = (a << 24) | (b << 16) | (g << 8) | r
-    return agbr
+    local abgr = (a << 24) | (b << 16) | (g << 8) | r
+    return abgr
 end
-
+--Counts the number of elements in a table
+local function countTableElements(tbl)
+    local count = 0
+    for _, value in pairs(tbl) do
+        if type(value) == "table" then
+            count = count + countTableElements(value)
+        else
+            count = count + 1
+        end
+    end
+    return count
+end
+--Checks if a table contains the specified element
 local function table_contains(table, element)
     for _, value in ipairs(table) do
         if value == element then
@@ -194,20 +165,10 @@ local function table_contains(table, element)
     end
     return false
 end
-
+--Draws a tooltip, can be forced
 local function tooltip(text, do_force)
     if do_force or imgui.is_item_hovered() then
         imgui.set_tooltip(text)
-    end
-end
-
-local function colored_TextSwitch(SampleText, StateSwitchName, State_01, Color_01, State_02, Color_02)
-    imgui.button(SampleText)
-    imgui.same_line()
-    if StateSwitchName then
-        imgui.text_colored(State_01, Color_01)
-    else
-        imgui.text_colored(State_02, Color_02)
     end
 end
 
@@ -219,9 +180,10 @@ local function create_resource(resource_type, resource_path)
 	return new_resource:create_holder(resource_type .. "Holder"):add_ref()
 end
 
-local function isBKF(var)
-    if var then
-        return "<" .. var .. ">k__BackingField"
+--Returns a field as a BackingField field
+local function isBKF(field)
+    if field then
+        return "<" .. field .. ">k__BackingField"
     end
 end
 
@@ -1131,7 +1093,6 @@ ray_query:enableNearSort()
 local filter_info = ray_query:get_FilterInfo()
 filter_info:set_Group(0)
 
-local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
 local shape_ray_method = sdk.find_type_definition("via.physics.System"):get_method("castSphere(via.Sphere, via.vec3, via.vec3, System.UInt32, via.physics.FilterInfo, via.physics.ShapeCastResult)")
 local shape_ray_method2 = sdk.find_type_definition("via.physics.System"):get_method("castShape(via.physics.ShapeCastQuery, via.physics.ShapeCastResult)")
 local shape_cast_result = sdk.create_instance("via.physics.ShapeCastResult"):add_ref()
@@ -1193,26 +1154,43 @@ local function test_ray(start_pos, end_pos)
 	return results
 end
 
+--Adds a new via.motion.DynamicMotionBank to a via.motion.Motion, making accessible the animations from 'motlist_path' by using the BankID 'new_bank_id'
+local function add_dynamic_motionbank(motion, motlist_path, new_bank_id)
+	local new_dbank
+	local bank_count = motion:getDynamicMotionBankCount()
+	local insert_idx = bank_count
+	for i=0, bank_count-1 do
+		local dbank = motion:getDynamicMotionBank(i)
+		if dbank and ((dbank:get_BankID() == new_bank_id) or (dbank:get_MotionList() and dbank:get_MotionList():ToString():lower():find(motlist_path:lower()))) then
+			new_dbank, insert_idx = dbank, i
+			break
+		end
+	end
+	if not new_dbank then
+		motion:setDynamicMotionBankCount(bank_count+1)
+	end
+	new_dbank = new_dbank or sdk.create_instance("via.motion.DynamicMotionBank"):add_ref()
+	new_dbank:set_MotionList(create_resource("via.motion.MotionListResource", motlist_path))
+	new_dbank:set_OverwriteBankID(true)
+	new_dbank:set_BankID(new_bank_id)
+	motion:setDynamicMotionBank(insert_idx, new_dbank)
+	
+	return new_dbank
+end
+
 func = {
 	check_GameName = check_GameName,
     get_CurrentScene = get_CurrentScene,
     get_GameObject = get_GameObject,
     get_GameObjects = get_GameObjects,
     get_GameObjectComponent = get_GameObjectComponent,
-    get_Field = get_Field,
-    call_Method = call_Method,
-    boolean_ToInt = boolean_ToInt,
-    boolean_ToFloat = boolean_ToFloat,
-    int_ToBoolean = int_ToBoolean,
-    float_ToBoolean = float_ToBoolean,
     convert_rgb_to_vector3f = convert_rgb_to_vector3f,
     convert_vector3f_to_rgb = convert_vector3f_to_rgb,
     convert_rgba_to_vector4f = convert_rgba_to_vector4f,
     convert_vector4f_to_rgba = convert_vector4f_to_rgba,
     convert_float4_to_vector4f = convert_float4_to_vector4f,
-	convert_rgba_to_AGBR = convert_rgba_to_AGBR,
+	convert_rgba_to_ABGR = convert_rgba_to_ABGR,
     tooltip = tooltip,
-    colored_TextSwitch = colored_TextSwitch,
     create_resource = create_resource,
     table_contains = table_contains,
     generate_statics_global = generate_statics_global,
@@ -1224,6 +1202,7 @@ func = {
 	convert_to_json_tbl = convert_to_json_tbl,
     deepcopy = deepcopy,
     compareTables = compareTables,
+	countTableElements = countTableElements,
 	remove_MissingElements = remove_MissingElements,
 	get_children = get_children,
 	is_child_of = is_child_of,
@@ -1267,5 +1246,6 @@ func = {
 	spawn_gameobj = spawn_gameobj,
 	--clone_gameobj = clone_gameobj, --incomplete
 	split = split,
+	add_dynamic_motionbank = add_dynamic_motionbank,
 }
 return func
